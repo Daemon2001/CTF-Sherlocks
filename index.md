@@ -9,10 +9,9 @@ Welcome to my GitHub portfolio
 Here, I document my journey through HTB Sherlocks, TryHackMe challenges, that demonstrate my skills in offensive and defensive security. 
 This space serves as both a showcase of my technical capabilities and a reflection of my commitment to continuous learning in the cybersecurity field.
 
-## HTB
-### **Sherlock's**
+# **Sherlock's**
 
-#### Trojan
+## Trojan
   Completed: 07/23/25
   
   Analyst: Dae'mon Adams
