@@ -1,28 +1,31 @@
----
-layout: default
+
+CTF-Sherlocks Walkthrough Page
 ---
 
-<a href="http://www.linkedin.com/in/daemon-adams">
+<a href="http://www.linkedin.com/in/daemon-adams">LinkedIn</a>
+
 
 Welcome to my GitHub portfolio
 Here, I document my journey through HTB Sherlocks, TryHackMe challenges, that demonstrate my skills in offensive and defensive security. 
 This space serves as both a showcase of my technical capabilities and a reflection of my commitment to continuous learning in the cybersecurity field.
 
-# HTB
-## **Sherlock's**
+## HTB
+### **Sherlock's**
 
-### Trojan
+#### Trojan
   Completed: 07/23/25
+  
   Analyst: Dae'mon Adams
 
 Scenario: John Grunewald was deleting some old accounting documents when he accidentally deleted an important document he had been working on. He panicked and downloaded software to recover the document, but after installing it, his PC started behaving strangely. 
 Feeling even more demoralised and depressed, he alerted the IT department, who immediately locked down the workstation and recovered some forensic evidence. Now it is up to you to analyze the evidence to understand what happened on John's workstation.
 
-**Tools used**
-  Wireshark
-  FTK Imager
-  Volatility
-
+**Tools used**:
+  - Wireshark
+  - FTK Imager
+  - Volatility
+  
+---
 Task 1: What is the build version of the operating system?
   Answer: 19041
   Explanation: Using Volatility, the build version 19041 was extracted from the memory image. This indicates the workstation was running Windows 10 version 2004, a key data point for ensuring compatibility with memory analysis tools.
