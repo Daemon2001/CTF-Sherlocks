@@ -9,7 +9,7 @@ Welcome to my GitHub portfolio
 Here, I document my journey through HTB CTFs, TryHackMe challenges, demonstrating my skills in offensive security. 
 This space serves as both a showcase of my technical capabilities and a reflection of my commitment to continuous learning in the cybersecurity field.
 
-# HTB Timnelapse
+# HTB Timelapse
 ![Image](Image Folder/Screenshot 2025-11-16 124121.png)
 
   Completed: 11/16/25
