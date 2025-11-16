@@ -45,7 +45,7 @@ sudo ntpdate timelapse.htb
 ```
 
 ## SMB Enumeration
-The Nmap scan indicateds the machines SMB server has guest access, i confirmed this using the tool **netexec**. Now that i am sure i can acccess the shares guest account i can now enumerate for any available share names by using **smbclient**
+The Nmap scan indicates the machines SMB server has guest access, i confirmed this using the tool **netexec**. Now that i am sure i can acccess the shares guest account i can now enumerate for any available share names by using **smbclient**
 
 ![Image](Image Folder/Screenshot 2025-11-16 121721.png)
 
@@ -54,9 +54,10 @@ nxc smb $target -u 'admin' -p 'admin'
 ```
 
 ### Accessing the Share Directory
-The list of availabe shares has a specific share named "Shares" that has two folders named "Dev" containinf a password protected zip file named `winrm_backup`and "HelpDesk" which has LAPS msi files and other docx files supporting creating new local admin passwords, i choose to download the backup zipfile to crack on my attack host.
+The list of availabe shares has a specific share named "Shares" that has two folders named "Dev" containing a password protected zip file named `winrm_backup` and "HelpDesk" which has a LAPS msi file and other docx supporting creating new local admin passwords, i choose to download the backup zipfile to crack on my attack host.
 
 ![Image](Image Folder/Screenshot 2025-11-16 121903.png)
+![Image](Image Folder/Screenshot 2025-11-16 122233.png)
 
 ```Bash
 smbclient -N -L //$target -U 'guest'
@@ -67,12 +68,11 @@ smbclient \\\\$target\\Shares -U 'admin'
 Since i found this zip file in a "Dev" folder i can assume some type of credentials can be held within this file, i decided to use the tool **7z** to inspect the archive to enumerate it's contents and came to find a `.pfx` (`legacyy_dev_auth.pfx`) file to a legacy user
 
 ![Image](Image Folder/Screenshot 2025-11-16 122117.png)
-![Image](Image Folder/Screenshot 2025-11-16 122233.png)
+![Image](Image Folder/Screenshot 2025-11-16 122320.png)
 
 ```Bash
 7z l winrm_backup.zip
 ```
-![Image](Image Folder/Screenshot 2025-11-16 122320.png)
 
 ### Cracking the ZIP Password
 Now that i can confirm that this file houses credentials, i used zip2john to convert the file into a hash file named `winrm_creds` and used the tool **hashcat** to recover the password `supremelegacy`.
@@ -131,7 +131,7 @@ evil-winrm -i timelapse.htb -S -k legacyy_dev_auth.key -c legacyy_dev_auth.crt
 ```
 
 ## ACL & Domain Enumeration
-After establishing user-level access, i shifted into enumerating the compromised user privileges, ACL misconfiguratiuons, AD groups and object permissions. I wanted to determine how far the compromised user ccould pivot inside the domain.
+After establishing user-level access, i shifted into enumerating the compromised user privileges, ACL misconfigurations, AD groups and object permissions. I wanted to determine how far the compromised user could pivot inside the domain.
 
 ### Group Rights Review
 This user is apart of a group called Development, i enumerated the ACL permissions of the group and discovered this user has **GenericAll** permissions
@@ -146,7 +146,7 @@ Get-DomainObjectAcl -Identity "S-1-5-21-671920749-559770252-3318990721-3101" -Re
 ```
 
 ## Privilege Escalation via svc_deploy
-I uploaded a copy of the powershell script **winPEAS** to accelerate enumeration this tool helps enumerate privilege escalation vectors, registry misconfigurations, stored credentials, and environment weaknesses. WinPEAS revealed harcoded credentials for a service account named `svc_deploy` and the password 'E3R$Q62^12p7PLlC%KWaxuaV'.
+I uploaded a copy of the powershell script **winPEAS** to accelerate enumeration. This tool helps enumerate privilege escalation vectors, registry misconfigurations, stored credentials, and environment weaknesses. After running winPEAS, the tool revealed harcoded credentials for a service account named `svc_deploy` and the password 'E3R$Q62^12p7PLlC%KWaxuaV'.
 
 ![Image](Image Folder/Screenshot 2025-11-16 123440.png)
 ![Image](Image Folder/Screenshot 2025-11-16 123557.png)
