@@ -9,9 +9,7 @@ Welcome to my GitHub portfolio
 Here, I document my journey through HTB CTFs, TryHackMe challenges, demonstrating my skills in offensive security. 
 This space serves as both a showcase of my technical capabilities and a reflection of my commitment to continuous learning in the cybersecurity field.
 
-# **HTB CTF**
-
-## Timnelapse
+# HTB Timnelapse
   Completed: 11/16/25
   
   Analyst: Dae'mon Adams
