@@ -152,7 +152,7 @@ I uploaded a copy of the powershell script **winPEAS** to accelerate enumeration
 ![Image](Image Folder/Screenshot 2025-11-16 123557.png)
 
 ```Bash
-upload /home/Dae/Documents/HTB/CTFs/Timelapse/winPEAS.ps1
+upload /Path/To/Payload/winPEAS.ps1
 Import-Module .\winPEAS.ps1
 ```
 
